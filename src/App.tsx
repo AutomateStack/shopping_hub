@@ -28,6 +28,7 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
+const AdminMarketplaceLinks = lazy(() => import("./pages/AdminMarketplaceLinks"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Blog = lazy(() => import("./pages/Blog"));
@@ -48,14 +49,7 @@ const PlayQuiz = lazy(() => import("./pages/PlayQuiz"));
 const QuizResult = lazy(() => import("./pages/QuizResult"));
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 min — avoid refetching on every mount
-      gcTime: 15 * 60 * 1000,   // 15 min cache
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
+  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, gcTime: 15 * 60 * 1000, refetchOnWindowFocus: false, retry: 1 } },
 });
 
 const App = () => (
@@ -65,11 +59,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <a href="#main-content" className="skip-link">Skip to main content</a>
-          <PageViewTracker />
-          <ScrollProgress />
-          <CommandPalette />
-          <Suspense fallback={<div className="min-h-screen flex flex-col items-center justify-center bg-background gap-3" role="status"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" aria-hidden="true"></div><span className="text-sm text-muted-foreground">Loading ShopHub...</span><span className="sr-only">Loading...</span></div>}>
+          <a href="#main-content" className="skip-link">Skip to content</a>
+          <PageViewTracker /><ScrollProgress /><CommandPalette />
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" /></div>}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<Products />} />
@@ -80,12 +72,13 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
+              <Route path="/admin/marketplace-links" element={<ProtectedRoute requireAdmin><AdminMarketplaceLinks /></ProtectedRoute>} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
-              <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+              <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/contact" element={<ContactUs />} />
               <Route path="/terms" element={<TermsAndConditions />} />
               <Route path="/refunds" element={<RefundsAndCancellations />} />
@@ -100,20 +93,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-          <MobileBottomNav />
-          <ScrollToTop />
+          <MobileBottomNav /><ScrollToTop />
         </BrowserRouter>
-        <NewsletterPopup />
-        <RecentlySoldTicker />
-        <InstallPrompt />
-        <CompareDrawer />
-        <PriceDropWatcher />
-        <CookieConsent />
-        <ExitIntentOffer />
+        <NewsletterPopup /><RecentlySoldTicker /><InstallPrompt /><CompareDrawer /><PriceDropWatcher /><CookieConsent /><ExitIntentOffer />
       </TooltipProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );
-
 export default App;
-
