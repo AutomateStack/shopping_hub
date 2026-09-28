@@ -36,11 +36,11 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       return;
     }
 
-    // Marketplace Links is a standalone admin route. When the user clicks
-    // another sidebar item from that route, return to the main admin shell
-    // and pass the requested tab so the correct section opens immediately.
+    // Marketplace Links is a separate route with its own SidebarProvider.
+    // Force a clean transition back to the main admin shell so React Router
+    // state from the standalone page cannot leave the sidebar stuck there.
     if (onMarketplaceRoute) {
-      navigate(`/admin?tab=${encodeURIComponent(value)}`);
+      window.location.assign(`/admin?tab=${encodeURIComponent(value)}`);
       return;
     }
 
