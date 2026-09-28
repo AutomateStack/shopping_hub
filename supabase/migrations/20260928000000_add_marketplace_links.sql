@@ -1,0 +1,5 @@
+-- Marketplace links for external ordering channels
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS amazon_url TEXT,
+  ADD COLUMN IF NOT EXISTS meesho_url TEXT,
+  ADD COLUMN IF NOT EXISTS whatsapp_url TEXT;
