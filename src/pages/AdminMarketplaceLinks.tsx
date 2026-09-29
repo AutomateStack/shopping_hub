@@ -40,6 +40,13 @@ function validUrl(value: string) {
   }
 }
 
+function normalizeProductName(value: string | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function AdminMarketplaceLinks() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -58,7 +65,7 @@ export default function AdminMarketplaceLinks() {
     },
   });
 
-  const { data: mappings = [], isLoading } = useQuery({
+  const { data: mappings = [], isLoading, refetch: refetchMappings } = useQuery({
     queryKey: ["shoppinghub-marketplace-mappings"],
     queryFn: async () => {
       const { data, error } = await supabase.from("shoppinghub_marketplace_map" as any).select("*").order("product_name");
@@ -67,8 +74,29 @@ export default function AdminMarketplaceLinks() {
     },
   });
 
+  // WhatsApp's product_retailer_id is already stored in the marketplace map for
+  // products learned before the product-level column was introduced. Match that
+  // existing mapping by product_id first, then by exact normalized product name.
+  // This makes the seeded/previously learned ID visible immediately without
+  // requiring the user to copy an ID from WhatsApp Business.
+  const getDetectedRetailerId = (product: ProductOption | undefined) => {
+    if (!product) return "";
+    if (product.whatsapp_retailer_id?.trim()) return product.whatsapp_retailer_id.trim();
+
+    const byProductId = mappings.find(
+      (m) => m.product_id && String(m.product_id) === String(product.id) && m.whatsapp_retailer_id?.trim(),
+    );
+    if (byProductId?.whatsapp_retailer_id) return byProductId.whatsapp_retailer_id.trim();
+
+    const productName = normalizeProductName(product.name);
+    const byName = mappings.find(
+      (m) => normalizeProductName(m.product_name) === productName && m.whatsapp_retailer_id?.trim(),
+    );
+    return byName?.whatsapp_retailer_id?.trim() || "";
+  };
+
   const selectedProduct = products.find(p => p.id === form.product_id);
-  const detectedRetailerId = selectedProduct?.whatsapp_retailer_id?.trim() || "";
+  const detectedRetailerId = getDetectedRetailerId(selectedProduct);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -91,6 +119,16 @@ export default function AdminMarketplaceLinks() {
       };
       const { error } = await supabase.from("shoppinghub_marketplace_map" as any).upsert(payload, { onConflict: "whatsapp_retailer_id" });
       if (error) throw error;
+
+      // Persist the learned ID on the product as the primary source of truth for
+      // future Marketplace Links loads. This is intentionally kept behind the
+      // same admin action that already writes the mapping table.
+      if (selected?.id && retailerId && selected.whatsapp_retailer_id !== retailerId) {
+        const { error: productError } = await (supabase.from("products" as any) as any)
+          .update({ whatsapp_retailer_id: retailerId })
+          .eq("id", selected.id);
+        if (productError) throw productError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] });
@@ -111,17 +149,32 @@ export default function AdminMarketplaceLinks() {
   });
 
   const refreshDetectedIds = async () => {
-    await refetchProducts();
-    toast({ title: "WhatsApp catalog IDs refreshed" });
+    try {
+      const [productsResult, mappingsResult] = await Promise.all([refetchProducts(), refetchMappings()]);
+      if (productsResult.error) throw productsResult.error;
+      if (mappingsResult.error) throw mappingsResult.error;
+
+      toast({
+        title: "WhatsApp catalog IDs refreshed",
+        description: "Existing WhatsApp IDs were reloaded from products and marketplace mappings.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Could not refresh WhatsApp IDs",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleProductChange = (value: string) => {
     const selected = products.find(p => p.id === value);
+    const detectedId = getDetectedRetailerId(selected);
     setForm(f => ({
       ...f,
       product_id: value === "none" ? "" : value,
       product_name: selected?.name || f.product_name,
-      whatsapp_retailer_id: selected?.whatsapp_retailer_id || f.whatsapp_retailer_id,
+      whatsapp_retailer_id: detectedId || f.whatsapp_retailer_id,
     }));
   };
 
@@ -184,7 +237,10 @@ export default function AdminMarketplaceLinks() {
                       <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Not linked</SelectItem>
-                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}{p.whatsapp_retailer_id ? " ✓ WhatsApp ID detected" : " — waiting for WhatsApp cart"}</SelectItem>)}
+                        {products.map(p => {
+                          const detectedId = getDetectedRetailerId(p);
+                          return <SelectItem key={p.id} value={p.id}>{p.name}{detectedId ? " ✓ WhatsApp ID detected" : " — waiting for WhatsApp cart"}</SelectItem>;
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -199,7 +255,7 @@ export default function AdminMarketplaceLinks() {
                     />
                     <p className="text-xs text-muted-foreground">
                       {detectedRetailerId
-                        ? "Detected automatically from a WhatsApp cart order. You do not need to copy it from WhatsApp Business."
+                        ? "Detected automatically from a previous WhatsApp cart mapping. You do not need to copy it from WhatsApp Business."
                         : "Not detected yet. Ask one test customer to add this product to the WhatsApp cart once, then click Refresh WhatsApp IDs."}
                     </p>
                   </div>
