@@ -67,15 +67,16 @@ export function ProductCard({ product, badge }: ProductCardProps) {
     <>
       <PrefetchLink to={`/products/${product.id}`} className="group block h-full">
         <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30 h-full hover:-translate-y-1.5 relative group/card">
-          <div className="aspect-square overflow-hidden bg-white relative sheen">
+          {/* Match the Products page image treatment: fixed square frame + cover image. */}
+          <div className="aspect-square overflow-hidden bg-muted relative">
             <OptimizedImage
               src={product.image_url}
               alt={product.name}
-              className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-500"
-              width={400}
-              height={400}
-              responsiveWidths={[200, 400, 600]}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+              width={500}
+              height={500}
+              responsiveWidths={[300, 500, 700]}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             />
             {badge}
             <div className="product-card-actions absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent flex items-end justify-center gap-2">
@@ -107,18 +108,14 @@ export function ProductCard({ product, badge }: ProductCardProps) {
               <CompareButton productId={product.id} />
             </div>
           </div>
-          <CardContent className="p-3">
-            <h3 className="font-semibold text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+          <CardContent className="p-4">
+            <h3 className="font-semibold mb-1 line-clamp-2 group-hover:text-primary transition-colors">
               {product.name}
             </h3>
-            <div className="flex items-center justify-between">
-              <p className="text-lg font-bold text-primary">₹{product.price.toFixed(0)}</p>
+            <div className="flex items-baseline justify-between mt-2">
+              <p className="text-2xl font-bold text-primary">₹{product.price.toFixed(0)}</p>
               {product.stock != null && product.stock > 0 ? (
-                product.stock <= 5 ? (
-                  <span className="text-xs text-destructive font-medium animate-pulse">Only {product.stock} left!</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">In Stock</span>
-                )
+                <span className="text-xs text-muted-foreground">In Stock</span>
               ) : (
                 <span className="text-xs text-destructive font-medium">Out of Stock</span>
               )}
