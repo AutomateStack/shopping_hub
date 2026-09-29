@@ -25,10 +25,17 @@ interface Mapping {
 interface ProductOption {
   id: string;
   name: string;
-  whatsapp_retailer_id: string | null;
 }
 
-const emptyForm = { whatsapp_retailer_id: "", product_id: "", product_name: "", amazon_url: "", meesho_url: "", whatsapp_url: "", enabled: true };
+const emptyForm = {
+  whatsapp_retailer_id: "",
+  product_id: "",
+  product_name: "",
+  amazon_url: "",
+  meesho_url: "",
+  whatsapp_url: "",
+  enabled: true,
+};
 
 function validUrl(value: string) {
   if (!value.trim()) return true;
@@ -54,60 +61,81 @@ export default function AdminMarketplaceLinks() {
   const [editing, setEditing] = useState<Mapping | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const { data: products = [], refetch: refetchProducts, isFetching: productsFetching } = useQuery<ProductOption[]>({
+  // IMPORTANT: products does NOT have whatsapp_retailer_id in the current
+  // database schema. WhatsApp IDs live in shoppinghub_marketplace_map.
+  // Only request columns that actually exist in products.
+  const {
+    data: products = [],
+    refetch: refetchProducts,
+    isFetching: productsFetching,
+  } = useQuery<ProductOption[]>({
     queryKey: ["marketplace-products"],
     queryFn: async () => {
       const { data, error } = await (supabase.from("products" as any) as any)
-        .select("id,name,whatsapp_retailer_id")
+        .select("id,name")
         .order("name");
       if (error) throw error;
       return (data || []) as ProductOption[];
     },
   });
 
-  const { data: mappings = [], isLoading, refetch: refetchMappings } = useQuery({
+  const {
+    data: mappings = [],
+    isLoading,
+    refetch: refetchMappings,
+  } = useQuery<Mapping[]>({
     queryKey: ["shoppinghub-marketplace-mappings"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("shoppinghub_marketplace_map" as any).select("*").order("product_name");
+      const { data, error } = await supabase
+        .from("shoppinghub_marketplace_map" as any)
+        .select("*")
+        .order("product_name");
       if (error) throw error;
       return (data || []) as Mapping[];
     },
   });
 
-  // WhatsApp's product_retailer_id is already stored in the marketplace map for
-  // products learned before the product-level column was introduced. Match that
-  // existing mapping by product_id first, then by exact normalized product name.
-  // This makes the seeded/previously learned ID visible immediately without
-  // requiring the user to copy an ID from WhatsApp Business.
+  // The mapping table is the single source of truth for the WhatsApp
+  // product_retailer_id. Match it first by product_id, then by product name.
   const getDetectedRetailerId = (product: ProductOption | undefined) => {
     if (!product) return "";
-    if (product.whatsapp_retailer_id?.trim()) return product.whatsapp_retailer_id.trim();
 
     const byProductId = mappings.find(
-      (m) => m.product_id && String(m.product_id) === String(product.id) && m.whatsapp_retailer_id?.trim(),
+      (m) =>
+        m.product_id &&
+        String(m.product_id) === String(product.id) &&
+        m.whatsapp_retailer_id?.trim(),
     );
-    if (byProductId?.whatsapp_retailer_id) return byProductId.whatsapp_retailer_id.trim();
+    if (byProductId?.whatsapp_retailer_id) {
+      return byProductId.whatsapp_retailer_id.trim();
+    }
 
     const productName = normalizeProductName(product.name);
     const byName = mappings.find(
-      (m) => normalizeProductName(m.product_name) === productName && m.whatsapp_retailer_id?.trim(),
+      (m) =>
+        normalizeProductName(m.product_name) === productName &&
+        m.whatsapp_retailer_id?.trim(),
     );
     return byName?.whatsapp_retailer_id?.trim() || "";
   };
 
-  const selectedProduct = products.find(p => p.id === form.product_id);
+  const selectedProduct = products.find((p) => p.id === form.product_id);
   const detectedRetailerId = getDetectedRetailerId(selectedProduct);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const retailerId = form.whatsapp_retailer_id.trim() || detectedRetailerId;
       if (!retailerId) {
-        throw new Error("This product has not been detected from WhatsApp yet. Have one customer add it to the WhatsApp cart once, then refresh this page.");
+        throw new Error(
+          "This product has not been detected from WhatsApp yet. Have one customer add it to the WhatsApp cart once, then refresh this page.",
+        );
       }
+
       if (![form.amazon_url, form.meesho_url, form.whatsapp_url].every(validUrl)) {
         throw new Error("Marketplace links must be valid HTTPS URLs.");
       }
-      const selected = products.find(p => p.id === form.product_id);
+
+      const selected = products.find((p) => p.id === form.product_id);
       const payload = {
         whatsapp_retailer_id: retailerId,
         product_id: form.product_id || null,
@@ -117,46 +145,63 @@ export default function AdminMarketplaceLinks() {
         whatsapp_url: form.whatsapp_url.trim() || null,
         enabled: form.enabled,
       };
-      const { error } = await supabase.from("shoppinghub_marketplace_map" as any).upsert(payload, { onConflict: "whatsapp_retailer_id" });
-      if (error) throw error;
 
-      // Persist the learned ID on the product as the primary source of truth for
-      // future Marketplace Links loads. This is intentionally kept behind the
-      // same admin action that already writes the mapping table.
-      if (selected?.id && retailerId && selected.whatsapp_retailer_id !== retailerId) {
-        const { error: productError } = await (supabase.from("products" as any) as any)
-          .update({ whatsapp_retailer_id: retailerId })
-          .eq("id", selected.id);
-        if (productError) throw productError;
-      }
+      const { error } = await supabase
+        .from("shoppinghub_marketplace_map" as any)
+        .upsert(payload, { onConflict: "whatsapp_retailer_id" });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] });
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
-      setEditing(null); setForm(emptyForm);
+      setEditing(null);
+      setForm(emptyForm);
       toast({ title: "Marketplace links saved" });
     },
-    onError: (error: any) => toast({ title: "Could not save mapping", description: error.message, variant: "destructive" }),
+    onError: (error: any) =>
+      toast({
+        title: "Could not save mapping",
+        description: error.message,
+        variant: "destructive",
+      }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("shoppinghub_marketplace_map" as any).delete().eq("whatsapp_retailer_id", id);
+      const { error } = await supabase
+        .from("shoppinghub_marketplace_map" as any)
+        .delete()
+        .eq("whatsapp_retailer_id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] }); toast({ title: "Mapping deleted" }); },
-    onError: (error: any) => toast({ title: "Could not delete mapping", description: error.message, variant: "destructive" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] });
+      toast({ title: "Mapping deleted" });
+    },
+    onError: (error: any) =>
+      toast({
+        title: "Could not delete mapping",
+        description: error.message,
+        variant: "destructive",
+      }),
   });
 
   const refreshDetectedIds = async () => {
     try {
-      const [productsResult, mappingsResult] = await Promise.all([refetchProducts(), refetchMappings()]);
+      // Both queries are refreshed. No products.whatsapp_retailer_id is queried
+      // because that column does not exist in this database.
+      const [productsResult, mappingsResult] = await Promise.all([
+        refetchProducts(),
+        refetchMappings(),
+      ]);
+
       if (productsResult.error) throw productsResult.error;
       if (mappingsResult.error) throw mappingsResult.error;
 
       toast({
         title: "WhatsApp catalog IDs refreshed",
-        description: "Existing WhatsApp IDs were reloaded from products and marketplace mappings.",
+        description:
+          "WhatsApp IDs were reloaded from the marketplace mapping table.",
       });
     } catch (error: any) {
       toast({
@@ -168,9 +213,10 @@ export default function AdminMarketplaceLinks() {
   };
 
   const handleProductChange = (value: string) => {
-    const selected = products.find(p => p.id === value);
+    const selected = products.find((p) => p.id === value);
     const detectedId = getDetectedRetailerId(selected);
-    setForm(f => ({
+
+    setForm((f) => ({
       ...f,
       product_id: value === "none" ? "" : value,
       product_name: selected?.name || f.product_name,
@@ -178,10 +224,16 @@ export default function AdminMarketplaceLinks() {
     }));
   };
 
-  const filtered = useMemo(() => mappings.filter((m) => {
-    const q = search.toLowerCase();
-    return !q || [m.product_name, m.whatsapp_retailer_id, m.amazon_url, m.meesho_url].some(v => String(v || "").toLowerCase().includes(q));
-  }), [mappings, search]);
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return mappings.filter((m) =>
+      !q
+        ? true
+        : [m.product_name, m.whatsapp_retailer_id, m.amazon_url, m.meesho_url].some(
+            (v) => String(v || "").toLowerCase().includes(q),
+          ),
+    );
+  }, [mappings, search]);
 
   const startEdit = (m: Mapping) => {
     setEditing(m);
@@ -206,12 +258,15 @@ export default function AdminMarketplaceLinks() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-muted/30">
         <AdminSidebar activeTab="marketplace-links" onTabChange={() => {}} />
+
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center gap-4 border-b bg-background px-4 sticky top-0 z-40">
             <SidebarTrigger />
             <div>
               <h2 className="font-semibold text-sm">Marketplace Links</h2>
-              <p className="text-xs text-muted-foreground">WhatsApp catalog → Amazon / Meesho / WhatsApp</p>
+              <p className="text-xs text-muted-foreground">
+                WhatsApp catalog → Amazon / Meesho / WhatsApp
+              </p>
             </div>
           </header>
 
@@ -220,26 +275,53 @@ export default function AdminMarketplaceLinks() {
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h1 className="text-2xl font-bold">Marketplace Links</h1>
-                  <p className="text-muted-foreground">Configure ordering destinations once for each WhatsApp catalog product. WhatsApp catalog IDs are learned automatically when customers place a cart order.</p>
+                  <p className="text-muted-foreground">
+                    Configure ordering destinations once for each WhatsApp catalog product.
+                    WhatsApp catalog IDs are learned automatically when customers place a cart order.
+                  </p>
                 </div>
-                <Button variant="outline" onClick={refreshDetectedIds} disabled={productsFetching}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${productsFetching ? "animate-spin" : ""}`} />
+
+                <Button
+                  variant="outline"
+                  onClick={refreshDetectedIds}
+                  disabled={productsFetching}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${productsFetching ? "animate-spin" : ""}`}
+                  />
                   Refresh WhatsApp IDs
                 </Button>
               </div>
 
               <Card>
-                <CardHeader><CardTitle>{editing ? "Edit Marketplace Mapping" : "Add Marketplace Mapping"}</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>
+                    {editing ? "Edit Marketplace Mapping" : "Add Marketplace Mapping"}
+                  </CardTitle>
+                </CardHeader>
+
                 <CardContent className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>ShoppingHub Product</Label>
-                    <Select value={form.product_id || "none"} onValueChange={handleProductChange}>
-                      <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                    <Select
+                      value={form.product_id || "none"}
+                      onValueChange={handleProductChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Not linked</SelectItem>
-                        {products.map(p => {
+                        {products.map((p) => {
                           const detectedId = getDetectedRetailerId(p);
-                          return <SelectItem key={p.id} value={p.id}>{p.name}{detectedId ? " ✓ WhatsApp ID detected" : " — waiting for WhatsApp cart"}</SelectItem>;
+                          return (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                              {detectedId
+                                ? " ✓ WhatsApp ID detected"
+                                : " — waiting for WhatsApp cart"}
+                            </SelectItem>
+                          );
                         })}
                       </SelectContent>
                     </Select>
@@ -250,29 +332,199 @@ export default function AdminMarketplaceLinks() {
                     <Input
                       value={form.whatsapp_retailer_id || detectedRetailerId}
                       disabled={!!editing || !!detectedRetailerId}
-                      onChange={e => setForm(f => ({ ...f, whatsapp_retailer_id: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          whatsapp_retailer_id: e.target.value,
+                        }))
+                      }
                       placeholder="Auto-detected after a WhatsApp cart order"
                     />
                     <p className="text-xs text-muted-foreground">
                       {detectedRetailerId
-                        ? "Detected automatically from a previous WhatsApp cart mapping. You do not need to copy it from WhatsApp Business."
-                        : "Not detected yet. Ask one test customer to add this product to the WhatsApp cart once, then click Refresh WhatsApp IDs."}
+                        ? "Detected automatically from the marketplace mapping. You do not need to copy it from WhatsApp Business."
+                        : "Not detected yet. Have a customer add this product to the WhatsApp cart once, then click Refresh WhatsApp IDs."}
                     </p>
                   </div>
 
-                  <div className="space-y-2 md:col-span-2"><Label>Product Name</Label><Input value={form.product_name} onChange={e => setForm(f => ({ ...f, product_name: e.target.value }))} placeholder="Coir Scrubber Pack of 5" /></div>
-                  <div className="space-y-2"><Label>Amazon URL</Label><Input value={form.amazon_url} onChange={e => setForm(f => ({ ...f, amazon_url: e.target.value }))} placeholder="https://www.amazon.in/..." /></div>
-                  <div className="space-y-2"><Label>Meesho URL</Label><Input value={form.meesho_url} onChange={e => setForm(f => ({ ...f, meesho_url: e.target.value }))} placeholder="https://www.meesho.com/..." /></div>
-                  <div className="space-y-2"><Label>WhatsApp URL (optional)</Label><Input value={form.whatsapp_url} onChange={e => setForm(f => ({ ...f, whatsapp_url: e.target.value }))} placeholder="Optional direct ordering URL" /></div>
-                  <div className="flex items-center gap-3 pt-7"><Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))} /><Label>Enabled</Label></div>
-                  <div className="md:col-span-2 flex gap-2"><Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Saving..." : editing ? "Save Changes" : "Add Mapping"}</Button>{editing && <Button variant="outline" onClick={() => { setEditing(null); setForm(emptyForm); }}>Cancel</Button>}</div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Product Name</Label>
+                    <Input
+                      value={form.product_name}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, product_name: e.target.value }))
+                      }
+                      placeholder="Coir Scrubber Pack of 5"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Amazon URL</Label>
+                    <Input
+                      value={form.amazon_url}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, amazon_url: e.target.value }))
+                      }
+                      placeholder="https://www.amazon.in/..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Meesho URL</Label>
+                    <Input
+                      value={form.meesho_url}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, meesho_url: e.target.value }))
+                      }
+                      placeholder="https://www.meesho.com/..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>WhatsApp URL (optional)</Label>
+                    <Input
+                      value={form.whatsapp_url}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, whatsapp_url: e.target.value }))
+                      }
+                      placeholder="Optional direct ordering URL"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-7">
+                    <Switch
+                      checked={form.enabled}
+                      onCheckedChange={(v) =>
+                        setForm((f) => ({ ...f, enabled: v }))
+                      }
+                    />
+                    <Label>Enabled</Label>
+                  </div>
+
+                  <div className="md:col-span-2 flex gap-2">
+                    <Button
+                      onClick={() => saveMutation.mutate()}
+                      disabled={saveMutation.isPending}
+                    >
+                      {saveMutation.isPending
+                        ? "Saving..."
+                        : editing
+                          ? "Save Changes"
+                          : "Add Mapping"}
+                    </Button>
+                    {editing && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditing(null);
+                          setForm(emptyForm);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-4"><CardTitle>Configured Products ({filtered.length})</CardTitle><div className="relative w-full max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search product or catalog ID" value={search} onChange={e => setSearch(e.target.value)} /></div></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-4">
+                  <CardTitle>Configured Products ({filtered.length})</CardTitle>
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      placeholder="Search product or catalog ID"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                </CardHeader>
+
                 <CardContent>
-                  {isLoading ? <p className="text-muted-foreground">Loading mappings...</p> : filtered.length === 0 ? <div className="py-10 text-center text-muted-foreground"><Plus className="mx-auto mb-2 h-8 w-8" /><p>No mappings yet. Add your first WhatsApp catalog product above.</p></div> : <div className="space-y-3">{filtered.map(m => <div key={m.whatsapp_retailer_id} className="rounded-lg border p-4 bg-background"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="font-semibold">{m.product_name || "Unnamed product"}</div><div className="text-xs text-muted-foreground">WhatsApp ID: {m.whatsapp_retailer_id}</div></div><div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full border px-2 py-1">Amazon {m.amazon_url ? "✓" : "—"}</span><span className="rounded-full border px-2 py-1">Meesho {m.meesho_url ? "✓" : "—"}</span><span className="rounded-full border px-2 py-1">WhatsApp {m.whatsapp_url ? "✓" : "—"}</span><span className="rounded-full border px-2 py-1">{m.enabled ? "Enabled" : "Disabled"}</span></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => startEdit(m)}><Pencil className="mr-1 h-4 w-4" />Edit</Button><Button size="sm" variant="destructive" onClick={() => { if (confirm("Delete this marketplace mapping?")) deleteMutation.mutate(m.whatsapp_retailer_id); }}><Trash2 className="mr-1 h-4 w-4" />Delete</Button></div></div><div className="mt-3 grid gap-2 text-sm md:grid-cols-3">{m.amazon_url && <div className="flex items-center gap-1 min-w-0"><a className="truncate text-primary hover:underline" href={m.amazon_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 inline h-3 w-3" />Amazon</a><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copy(m.amazon_url!)}><Copy className="h-3 w-3" /></Button></div>}{m.meesho_url && <div className="flex items-center gap-1 min-w-0"><a className="truncate text-primary hover:underline" href={m.meesho_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 inline h-3 w-3" />Meesho</a><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copy(m.meesho_url!)}><Copy className="h-3 w-3" /></Button></div>}{m.whatsapp_url && <div className="flex items-center gap-1 min-w-0"><a className="truncate text-primary hover:underline" href={m.whatsapp_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 inline h-3 w-3" />WhatsApp</a><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copy(m.whatsapp_url!)}><Copy className="h-3 w-3" /></Button></div>}</div></div>)}</div>}
+                  {isLoading ? (
+                    <p className="text-muted-foreground">Loading mappings...</p>
+                  ) : filtered.length === 0 ? (
+                    <div className="py-10 text-center text-muted-foreground">
+                      <Plus className="mx-auto mb-2 h-8 w-8" />
+                      <p>No mappings yet. Add your first WhatsApp catalog product above.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filtered.map((m) => (
+                        <div
+                          key={m.whatsapp_retailer_id}
+                          className="rounded-lg border p-4 bg-background"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              <div className="font-semibold">
+                                {m.product_name || "Unnamed product"}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                WhatsApp ID: {m.whatsapp_retailer_id}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              <span className="rounded-full border px-2 py-1">
+                                Amazon {m.amazon_url ? "✓" : "—"}
+                              </span>
+                              <span className="rounded-full border px-2 py-1">
+                                Meesho {m.meesho_url ? "✓" : "—"}
+                              </span>
+                              <span className="rounded-full border px-2 py-1">
+                                WhatsApp {m.whatsapp_url ? "✓" : "—"}
+                              </span>
+                              <span className="rounded-full border px-2 py-1">
+                                {m.enabled ? "Enabled" : "Disabled"}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => startEdit(m)}>
+                                <Pencil className="mr-1 h-4 w-4" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copy(m.whatsapp_retailer_id)}
+                              >
+                                <Copy className="mr-1 h-4 w-4" />
+                                Copy ID
+                              </Button>
+                              {m.amazon_url && (
+                                <Button size="sm" variant="outline" asChild>
+                                  <a href={m.amazon_url} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="mr-1 h-4 w-4" />
+                                    Amazon
+                                  </a>
+                                </Button>
+                              )}
+                              {m.meesho_url && (
+                                <Button size="sm" variant="outline" asChild>
+                                  <a href={m.meesho_url} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="mr-1 h-4 w-4" />
+                                    Meesho
+                                  </a>
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => deleteMutation.mutate(m.whatsapp_retailer_id)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="mr-1 h-4 w-4" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
