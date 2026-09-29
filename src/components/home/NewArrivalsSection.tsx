@@ -33,6 +33,7 @@ export function NewArrivalsSection({ products }: { products: Product[] }) {
           </Link>
         </div>
 
+        {/* Keep the same card/image rendering as the Products page. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product, i) => (
             <div
@@ -42,7 +43,7 @@ export function NewArrivalsSection({ products }: { products: Product[] }) {
             >
               <ProductCard
                 product={product}
-                imageFit="contain"
+                nativeImage
                 badge={
                   <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] z-10">
                     New
