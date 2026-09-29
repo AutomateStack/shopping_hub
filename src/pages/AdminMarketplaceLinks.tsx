@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Pencil, Trash2, Plus, ExternalLink, Copy } from "lucide-react";
+import { Search, Pencil, Trash2, Plus, ExternalLink, Copy, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -20,6 +20,12 @@ interface Mapping {
   meesho_url: string | null;
   whatsapp_url: string | null;
   enabled: boolean;
+}
+
+interface ProductOption {
+  id: string;
+  name: string;
+  whatsapp_retailer_id: string | null;
 }
 
 const emptyForm = { whatsapp_retailer_id: "", product_id: "", product_name: "", amazon_url: "", meesho_url: "", whatsapp_url: "", enabled: true };
@@ -41,12 +47,15 @@ export default function AdminMarketplaceLinks() {
   const [editing, setEditing] = useState<Mapping | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], refetch: refetchProducts, isFetching: productsFetching } = useQuery<ProductOption[]>({
     queryKey: ["marketplace-products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id,name").order("name");
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,name,whatsapp_retailer_id")
+        .order("name");
       if (error) throw error;
-      return data || [];
+      return (data || []) as ProductOption[];
     },
   });
 
@@ -59,18 +68,23 @@ export default function AdminMarketplaceLinks() {
     },
   });
 
+  const selectedProduct = products.find(p => p.id === form.product_id);
+  const detectedRetailerId = selectedProduct?.whatsapp_retailer_id?.trim() || "";
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const retailerId = form.whatsapp_retailer_id.trim();
-      if (!retailerId) throw new Error("WhatsApp Catalog Product ID is required.");
+      const retailerId = form.whatsapp_retailer_id.trim() || detectedRetailerId;
+      if (!retailerId) {
+        throw new Error("This product has not been detected from WhatsApp yet. Have one customer add it to the WhatsApp cart once, then refresh this page.");
+      }
       if (![form.amazon_url, form.meesho_url, form.whatsapp_url].every(validUrl)) {
         throw new Error("Marketplace links must be valid HTTPS URLs.");
       }
-      const selectedProduct = products.find((p: any) => p.id === form.product_id);
+      const selected = products.find(p => p.id === form.product_id);
       const payload = {
         whatsapp_retailer_id: retailerId,
         product_id: form.product_id || null,
-        product_name: form.product_name.trim() || selectedProduct?.name || null,
+        product_name: form.product_name.trim() || selected?.name || null,
         amazon_url: form.amazon_url.trim() || null,
         meesho_url: form.meesho_url.trim() || null,
         whatsapp_url: form.whatsapp_url.trim() || null,
@@ -78,9 +92,20 @@ export default function AdminMarketplaceLinks() {
       };
       const { error } = await supabase.from("shoppinghub_marketplace_map" as any).upsert(payload, { onConflict: "whatsapp_retailer_id" });
       if (error) throw error;
+
+      // Keep the product itself as the source of truth for the detected
+      // WhatsApp catalog ID. This makes future mappings one-click.
+      if (selected?.id && retailerId) {
+        const { error: productError } = await supabase
+          .from("products")
+          .update({ whatsapp_retailer_id: retailerId })
+          .eq("id", selected.id);
+        if (productError) throw productError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
       setEditing(null); setForm(emptyForm);
       toast({ title: "Marketplace links saved" });
     },
@@ -95,6 +120,21 @@ export default function AdminMarketplaceLinks() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] }); toast({ title: "Mapping deleted" }); },
     onError: (error: any) => toast({ title: "Could not delete mapping", description: error.message, variant: "destructive" }),
   });
+
+  const refreshDetectedIds = async () => {
+    await refetchProducts();
+    toast({ title: "WhatsApp catalog IDs refreshed" });
+  };
+
+  const handleProductChange = (value: string) => {
+    const selected = products.find(p => p.id === value);
+    setForm(f => ({
+      ...f,
+      product_id: value === "none" ? "" : value,
+      product_name: selected?.name || f.product_name,
+      whatsapp_retailer_id: selected?.whatsapp_retailer_id || f.whatsapp_retailer_id,
+    }));
+  };
 
   const filtered = useMemo(() => mappings.filter((m) => {
     const q = search.toLowerCase();
@@ -135,16 +175,46 @@ export default function AdminMarketplaceLinks() {
 
           <main className="flex-1 p-6 overflow-auto">
             <div className="space-y-6 max-w-7xl mx-auto">
-              <div>
-                <h1 className="text-2xl font-bold">Marketplace Links</h1>
-                <p className="text-muted-foreground">Configure ordering destinations once for each WhatsApp catalog product. Future WhatsApp orders use this mapping automatically.</p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold">Marketplace Links</h1>
+                  <p className="text-muted-foreground">Configure ordering destinations once for each WhatsApp catalog product. WhatsApp catalog IDs are learned automatically when customers place a cart order.</p>
+                </div>
+                <Button variant="outline" onClick={refreshDetectedIds} disabled={productsFetching}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${productsFetching ? "animate-spin" : ""}`} />
+                  Refresh WhatsApp IDs
+                </Button>
               </div>
 
               <Card>
                 <CardHeader><CardTitle>{editing ? "Edit Marketplace Mapping" : "Add Marketplace Mapping"}</CardTitle></CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2"><Label>WhatsApp Catalog Product ID *</Label><Input value={form.whatsapp_retailer_id} disabled={!!editing} onChange={e => setForm(f => ({ ...f, whatsapp_retailer_id: e.target.value }))} placeholder="e.g. w7ivha0s34" /><p className="text-xs text-muted-foreground">Use the exact product_retailer_id received from WhatsApp.</p></div>
-                  <div className="space-y-2"><Label>ShoppingHub Product</Label><Select value={form.product_id || "none"} onValueChange={v => setForm(f => ({ ...f, product_id: v === "none" ? "" : v, product_name: products.find((p: any) => p.id === v)?.name || f.product_name }))}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent><SelectItem value="none">Not linked</SelectItem>{products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+                  <div className="space-y-2">
+                    <Label>ShoppingHub Product</Label>
+                    <Select value={form.product_id || "none"} onValueChange={handleProductChange}>
+                      <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not linked</SelectItem>
+                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}{p.whatsapp_retailer_id ? " ✓ WhatsApp ID detected" : " — waiting for WhatsApp cart"}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>WhatsApp Catalog Product ID</Label>
+                    <Input
+                      value={form.whatsapp_retailer_id || detectedRetailerId}
+                      disabled={!!editing || !!detectedRetailerId}
+                      onChange={e => setForm(f => ({ ...f, whatsapp_retailer_id: e.target.value }))}
+                      placeholder="Auto-detected after a WhatsApp cart order"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {detectedRetailerId
+                        ? "Detected automatically from a WhatsApp cart order. You do not need to copy it from WhatsApp Business."
+                        : "Not detected yet. Ask one test customer to add this product to the WhatsApp cart once, then click Refresh WhatsApp IDs."}
+                    </p>
+                  </div>
+
                   <div className="space-y-2 md:col-span-2"><Label>Product Name</Label><Input value={form.product_name} onChange={e => setForm(f => ({ ...f, product_name: e.target.value }))} placeholder="Coir Scrubber Pack of 5" /></div>
                   <div className="space-y-2"><Label>Amazon URL</Label><Input value={form.amazon_url} onChange={e => setForm(f => ({ ...f, amazon_url: e.target.value }))} placeholder="https://www.amazon.in/..." /></div>
                   <div className="space-y-2"><Label>Meesho URL</Label><Input value={form.meesho_url} onChange={e => setForm(f => ({ ...f, meesho_url: e.target.value }))} placeholder="https://www.meesho.com/..." /></div>
