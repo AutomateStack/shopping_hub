@@ -25,9 +25,16 @@ interface ProductCardProps {
   };
   badge?: React.ReactNode;
   imageFit?: "cover" | "contain";
+  /** Use the same native <img> rendering as the Products page when exact visual parity is needed. */
+  nativeImage?: boolean;
 }
 
-export function ProductCard({ product, badge, imageFit = "cover" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  badge,
+  imageFit = "cover",
+  nativeImage = false,
+}: ProductCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,15 +80,24 @@ export function ProductCard({ product, badge, imageFit = "cover" }: ProductCardP
       <PrefetchLink to={`/products/${product.id}`} className="group block h-full">
         <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30 h-full hover:-translate-y-1.5 relative group/card">
           <div className="aspect-square overflow-hidden bg-muted relative">
-            <OptimizedImage
-              src={product.image_url}
-              alt={product.name}
-              className={imageClassName}
-              width={500}
-              height={500}
-              responsiveWidths={[300, 500, 700]}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            />
+            {nativeImage ? (
+              <img
+                src={product.image_url || "/placeholder.svg"}
+                alt={product.name}
+                loading="lazy"
+                className={imageClassName}
+              />
+            ) : (
+              <OptimizedImage
+                src={product.image_url}
+                alt={product.name}
+                className={imageClassName}
+                width={500}
+                height={500}
+                responsiveWidths={[300, 500, 700]}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
+            )}
             {badge}
             <div className="product-card-actions absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-foreground/60 to-transparent flex items-end justify-center gap-2">
               <Button
