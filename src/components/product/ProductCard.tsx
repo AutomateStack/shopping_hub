@@ -24,9 +24,10 @@ interface ProductCardProps {
     description?: string | null;
   };
   badge?: React.ReactNode;
+  imageFit?: "cover" | "contain";
 }
 
-export function ProductCard({ product, badge }: ProductCardProps) {
+export function ProductCard({ product, badge, imageFit = "cover" }: ProductCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -63,16 +64,19 @@ export function ProductCard({ product, badge }: ProductCardProps) {
     toast({ title: "Added to cart", description: `${product.name} added successfully` });
   };
 
+  const imageClassName = imageFit === "contain"
+    ? "h-full w-full object-contain group-hover:scale-100 transition-transform duration-500"
+    : "h-full w-full object-cover group-hover:scale-110 transition-transform duration-500";
+
   return (
     <>
       <PrefetchLink to={`/products/${product.id}`} className="group block h-full">
         <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30 h-full hover:-translate-y-1.5 relative group/card">
-          {/* Match the Products page image treatment: fixed square frame + cover image. */}
           <div className="aspect-square overflow-hidden bg-muted relative">
             <OptimizedImage
               src={product.image_url}
               alt={product.name}
-              className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+              className={imageClassName}
               width={500}
               height={500}
               responsiveWidths={[300, 500, 700]}
