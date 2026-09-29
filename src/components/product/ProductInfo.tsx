@@ -7,7 +7,6 @@ import { useState, ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DeliveryEstimate } from "@/components/product/DeliveryEstimate";
 import { BackInStockNotify } from "@/components/product/BackInStockNotify";
-import { MarketplaceOrderButtons } from "@/components/product/MarketplaceOrderButtons";
 
 interface VolumeTier {
   min_qty: number;
@@ -23,9 +22,6 @@ interface ProductInfoProps {
     category: string | null;
     stock: number | null;
     volume_tiers?: VolumeTier[] | null;
-    amazon_url?: string | null;
-    meesho_url?: string | null;
-    whatsapp_url?: string | null;
   };
   quantity: number;
   setQuantity: (q: number) => void;
@@ -90,8 +86,6 @@ export function ProductInfo({ product, quantity, setQuantity, onAddToCart, onBuy
       {product.description && <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.25s' }}><h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Key Highlights</h2><ul className="space-y-2">{product.description.split('\n').map(line => line.trim()).filter(line => line.length > 0).slice(0, 6).map((point, i) => { const cleanPoint = point.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1'); return <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground"><Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" /><span>{cleanPoint}</span></li>; })}</ul></div>}
 
       {children && <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>{children}</div>}
-
-      <MarketplaceOrderButtons amazonUrl={product.amazon_url} meeshoUrl={product.meesho_url} whatsappUrl={product.whatsapp_url} productName={product.name} />
 
       <div className="mb-5 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>{stock > 0 ? <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /><span className="text-sm font-medium text-green-600">In Stock {stock <= 5 && `· Only ${stock} left!`}</span>{stock <= 5 && <Badge variant="destructive" className="text-xs animate-pulse">Low Stock</Badge>}</div> : <div className="space-y-3"><div className="flex items-center gap-2"><span className="flex h-2.5 w-2.5 rounded-full bg-destructive" /><span className="text-sm font-medium text-destructive">Out of Stock</span></div><BackInStockNotify productId={product.id} /></div>}</div>
 
