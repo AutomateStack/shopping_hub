@@ -10,5 +10,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS products_whatsapp_retailer_id_unique
 COMMENT ON COLUMN public.products.whatsapp_retailer_id IS
   'WhatsApp/Meta catalog product_retailer_id (retailer/content ID). Captured from WhatsApp order/product webhook payloads.';
 
--- Keep the existing marketplace map compatible. When a product is linked,
--- the admin UI can use this product-level value instead of asking for the ID again.
+-- Preserve any IDs that were already learned by the existing marketplace map.
+-- Only fill an empty product field; never overwrite a newer product-level value.
+DO $$
+BEGIN
+  IF to_regclass('public.shoppinghub_marketplace_map') IS NOT NULL THEN
+    UPDATE public.products p
+    SET whatsapp_retailer_id = m.whatsapp_retailer_id,
+        updated_at = NOW()
+    FROM public.shoppinghub_marketplace_map m
+    WHERE m.product_id IS NOT NULL
+      AND m.product_id::text = p.id::text
+      AND (p.whatsapp_retailer_id IS NULL OR btrim(p.whatsapp_retailer_id) = '')
+      AND m.whatsapp_retailer_id IS NOT NULL
+      AND btrim(m.whatsapp_retailer_id) <> '';
+  END IF;
+END $$;
