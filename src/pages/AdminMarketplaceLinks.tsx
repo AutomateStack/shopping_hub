@@ -50,8 +50,7 @@ export default function AdminMarketplaceLinks() {
   const { data: products = [], refetch: refetchProducts, isFetching: productsFetching } = useQuery<ProductOption[]>({
     queryKey: ["marketplace-products"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
+      const { data, error } = await (supabase.from("products" as any) as any)
         .select("id,name,whatsapp_retailer_id")
         .order("name");
       if (error) throw error;
@@ -92,16 +91,6 @@ export default function AdminMarketplaceLinks() {
       };
       const { error } = await supabase.from("shoppinghub_marketplace_map" as any).upsert(payload, { onConflict: "whatsapp_retailer_id" });
       if (error) throw error;
-
-      // Keep the product itself as the source of truth for the detected
-      // WhatsApp catalog ID. This makes future mappings one-click.
-      if (selected?.id && retailerId) {
-        const { error: productError } = await supabase
-          .from("products")
-          .update({ whatsapp_retailer_id: retailerId })
-          .eq("id", selected.id);
-        if (productError) throw productError;
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shoppinghub-marketplace-mappings"] });
