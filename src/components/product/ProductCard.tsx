@@ -67,11 +67,11 @@ export function ProductCard({ product, badge }: ProductCardProps) {
     <>
       <PrefetchLink to={`/products/${product.id}`} className="group block h-full">
         <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30 h-full hover:-translate-y-1.5 relative group/card">
-          <div className="aspect-square overflow-hidden bg-muted relative sheen">
+          <div className="aspect-square overflow-hidden bg-white relative sheen">
             <OptimizedImage
               src={product.image_url}
               alt={product.name}
-              className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+              className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-500"
               width={400}
               height={400}
               responsiveWidths={[200, 400, 600]}
