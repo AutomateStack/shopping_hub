@@ -32,7 +32,9 @@ export function NewArrivalsSection({ products }: { products: Product[] }) {
             </Button>
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        {/* Use the same larger card proportions as the Products page, with fewer columns on desktop. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product, i) => (
             <div
               key={product.id}
