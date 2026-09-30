@@ -10,14 +10,14 @@ interface SEOHeadProps {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const BASE_URL = "https://shopshub.lovable.app";
-const DEFAULT_IMAGE = "https://shopshub.lovable.app/og-image.jpg";
-const SITE_NAME = "ShopHub";
+const BASE_URL = "https://shopshub.vercel.app";
+const DEFAULT_IMAGE = "https://shopshub.vercel.app/og-image.jpg";
+const SITE_NAME = "ShoppingHub";
 const TWITTER_HANDLE = "@shopshub";
 
 export function SEOHead({
-  title = "ShopHub — Online Shopping for Electronics, Fashion, Home & More",
-  description = "Shop the best deals on electronics, clothing, home essentials & more at ShopHub. Curated collections, secure payments, fast delivery & easy returns.",
+  title = "ShoppingHub — Online Shopping for Electronics, Fashion, Home & More",
+  description = "Shop the best deals on electronics, clothing, home essentials & more at ShoppingHub. Curated collections, secure payments, fast delivery & easy returns.",
   canonical,
   type = "website",
   image = DEFAULT_IMAGE,
@@ -70,7 +70,6 @@ export function SEOHead({
       link.setAttribute("href", `${BASE_URL}${canonical}`);
     }
 
-    // JSON-LD — supports single object or array of objects
     if (jsonLd) {
       const items = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
       const ids: string[] = [];
