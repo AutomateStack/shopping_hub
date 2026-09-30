@@ -48,64 +48,34 @@ export default function ContactUs() {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Contact Us — Get in Touch | ShopHub"
-        description="Have questions or feedback? Contact ShopHub via email, phone or our online form. We respond within 24 hours."
+        title="Contact Thirmal Enterprise | ShoppingHub"
+        description="Contact Thirmal Enterprise, the business operating ShoppingHub, for product, order and customer support."
         canonical="/contact"
         jsonLd={[
           {
             "@context": "https://schema.org",
             "@type": "ContactPage",
-            name: "Contact ShopHub",
+            name: "Contact Thirmal Enterprise",
             url: "https://shopshub.lovable.app/contact",
             mainEntity: {
               "@type": "Organization",
-              name: "ShopHub",
+              name: "Thirmal Enterprise",
+              alternateName: "ShoppingHub",
               email: "ShopsHub@gmail.com",
-            },
-          },
-          {
-            "@context": "https://schema.org",
-            "@type": "LocalBusiness",
-            name: "ShopHub",
-            url: "https://shopshub.lovable.app",
-            image: "https://shopshub.lovable.app/og-image.jpg",
-            email: "ShopsHub@gmail.com",
-            priceRange: "₹₹",
-            address: {
-              "@type": "PostalAddress",
-              addressCountry: "IN",
-            },
-            openingHoursSpecification: [
-              {
-                "@type": "OpeningHoursSpecification",
-                dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-                opens: "09:00",
-                closes: "18:00",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Hyderabad",
+                addressRegion: "Telangana",
+                addressCountry: "IN",
               },
-            ],
-            contactPoint: {
-              "@type": "ContactPoint",
-              contactType: "customer service",
-              email: "ShopsHub@gmail.com",
-              areaServed: "IN",
-              availableLanguage: ["English", "Hindi"],
             },
-          },
-          {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: [
-              { "@type": "Question", name: "How can I contact ShopHub?", acceptedAnswer: { "@type": "Answer", text: "You can reach us via email at ShopsHub@gmail.com or fill out the contact form on our website." } },
-              { "@type": "Question", name: "What are ShopHub's business hours?", acceptedAnswer: { "@type": "Answer", text: "Our customer support is available Monday to Saturday, 9 AM to 6 PM IST." } },
-              { "@type": "Question", name: "How long does it take to get a response?", acceptedAnswer: { "@type": "Answer", text: "We typically respond within 24 hours of receiving your message." } },
-            ],
           },
         ]}
       />
       <Navbar />
-      <div className="container px-4 py-12 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-2">Contact Us</h1>
-        <p className="text-muted-foreground mb-8">We'd love to hear from you. Reach out anytime.</p>
+      <main id="main-content" className="container px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold mb-2">Contact Thirmal Enterprise</h1>
+        <p className="text-muted-foreground mb-8">ShoppingHub is operated by Thirmal Enterprise. Reach out for product, order or customer support.</p>
 
         <div className="grid md:grid-cols-2 gap-8">
           <Card>
@@ -120,9 +90,14 @@ export default function ContactUs() {
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-primary mt-0.5" />
                 <div>
-                  <p className="font-medium">Address</p>
-                  <p className="text-sm text-muted-foreground">123, Business Hub, Mumbai, Maharashtra 400001, India</p>
+                  <p className="font-medium">Business location</p>
+                  <p className="text-sm text-muted-foreground">Hyderabad, Telangana, India</p>
                 </div>
+              </div>
+              <div>
+                <p className="font-medium">Business</p>
+                <p className="text-sm text-muted-foreground">Thirmal Enterprise</p>
+                <p className="text-sm text-muted-foreground">Online platform: ShoppingHub</p>
               </div>
             </CardContent>
           </Card>
@@ -149,7 +124,7 @@ export default function ContactUs() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
