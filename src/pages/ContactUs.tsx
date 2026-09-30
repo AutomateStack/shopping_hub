@@ -56,7 +56,7 @@ export default function ContactUs() {
             "@context": "https://schema.org",
             "@type": "ContactPage",
             name: "Contact Thirmal Enterprise",
-            url: "https://shopshub.lovable.app/contact",
+            url: "https://shopshub.vercel.app/contact",
             mainEntity: {
               "@type": "Organization",
               name: "Thirmal Enterprise",
@@ -82,44 +82,22 @@ export default function ContactUs() {
             <CardContent className="p-6 space-y-6">
               <div className="flex items-start gap-3">
                 <Mail className="h-5 w-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">ShopsHub@gmail.com</p>
-                </div>
+                <div><p className="font-medium">Email</p><p className="text-sm text-muted-foreground">ShopsHub@gmail.com</p></div>
               </div>
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Business location</p>
-                  <p className="text-sm text-muted-foreground">Hyderabad, Telangana, India</p>
-                </div>
+                <div><p className="font-medium">Business location</p><p className="text-sm text-muted-foreground">Hyderabad, Telangana, India</p></div>
               </div>
-              <div>
-                <p className="font-medium">Business</p>
-                <p className="text-sm text-muted-foreground">Thirmal Enterprise</p>
-                <p className="text-sm text-muted-foreground">Online platform: ShoppingHub</p>
-              </div>
+              <div><p className="font-medium">Business</p><p className="text-sm text-muted-foreground">Thirmal Enterprise</p><p className="text-sm text-muted-foreground">Online platform: ShoppingHub</p></div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>Name</Label>
-                  <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
-                </div>
-                <div>
-                  <Label>Message</Label>
-                  <Textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} rows={4} required />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : "Send Message"}
-                </Button>
+                <div><Label>Name</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></div>
+                <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required /></div>
+                <div><Label>Message</Label><Textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} rows={4} required /></div>
+                <Button type="submit" className="w-full" disabled={loading}>{loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</> : "Send Message"}</Button>
               </form>
             </CardContent>
           </Card>
