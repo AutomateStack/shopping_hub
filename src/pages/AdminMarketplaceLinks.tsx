@@ -181,6 +181,22 @@ export default function AdminMarketplaceLinks() {
         throw new Error("Channel prices must be positive numbers.");
       }
 
+      if (form.wholesale_enabled) {
+        if (!form.wholesale_pricing.length) {
+          throw new Error("Add at least one wholesale tier or disable wholesale ordering.");
+        }
+        const invalidTier = form.wholesale_pricing.some((tier) =>
+          !Number.isInteger(Number(tier.min_quantity)) ||
+          Number(tier.min_quantity) <= 0 ||
+          (tier.max_quantity != null && (!Number.isInteger(Number(tier.max_quantity)) || Number(tier.max_quantity) < Number(tier.min_quantity))) ||
+          !Number.isFinite(Number(tier.unit_price)) ||
+          Number(tier.unit_price) <= 0
+        );
+        if (invalidTier) {
+          throw new Error("Check wholesale tier quantities and unit prices.");
+        }
+      }
+
       const payload = {
         whatsapp_retailer_id: retailerId,
         product_id: form.product_id || null,
