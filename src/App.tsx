@@ -28,7 +28,7 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
-const AdminMarketplaceLinks = lazy(() => import("./pages/AdminMarketplaceLinks"));
+const AdminMarketplaceLinks = lazy(() => import("./pages/AdminMarketplaceCatalogConfig"));
 const AdminWhatsAppCatalog = lazy(() => import("./pages/AdminWhatsAppCatalog"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Orders = lazy(() => import("./pages/Orders"));
