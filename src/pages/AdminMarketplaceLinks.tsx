@@ -399,6 +399,30 @@ export default function AdminMarketplaceLinks() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle>Global COD Charge</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="space-y-2">
+                    <Label>COD Charge (₹)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={codCharge}
+                      onChange={(e) => setCodCharge(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This single charge is added once to a retail COD cart.
+                    </p>
+                  </div>
+                  <Button onClick={saveCodCharge} disabled={savingCod}>
+                    {savingCod ? "Saving..." : "Save COD Charge"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>
                     {editing ? "Edit Marketplace Mapping" : "Add Marketplace Mapping"}
                   </CardTitle>
