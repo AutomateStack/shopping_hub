@@ -62,7 +62,7 @@ export function buildRetailButtons(config: ProductOrderConfig, codCharge = DEFAU
     buttons.push({ channel: "whatsapp", label: `Order on WhatsApp — ₹${formatPrice(config.whatsappPrice)}`, price: config.whatsappPrice });
   }
 
-  if (config.codEnabled && hasPrice(config.whatsappPrice)) {
+  if (config.codEnabled !== false && hasPrice(config.whatsappPrice)) {
     buttons.push({ channel: "cod", label: `COD — ₹${formatPrice(config.whatsappPrice + codCharge)}`, price: config.whatsappPrice + codCharge });
   }
 
