@@ -22,6 +22,9 @@ ON CONFLICT (setting_key) DO NOTHING;
 
 ALTER TABLE public.shoppinghub_order_settings ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT, INSERT, UPDATE ON public.shoppinghub_order_settings TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.shoppinghub_order_settings TO service_role;
+
 DROP POLICY IF EXISTS "ShopHub admins can view order settings" ON public.shoppinghub_order_settings;
 CREATE POLICY "ShopHub admins can view order settings"
   ON public.shoppinghub_order_settings
