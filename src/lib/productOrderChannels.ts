@@ -30,7 +30,7 @@ export interface RetailButton {
 export interface MarketplaceLink {
   name: "Amazon" | "Meesho";
   url: string;
-  price?: number;
+  price: number;
 }
 
 export const DEFAULT_COD_CHARGE = 20;
@@ -55,26 +55,15 @@ export function buildCustomerTypeButtons(config: ProductOrderConfig) {
 }
 
 /** Retail exposes at most three actions: WhatsApp, COD, and marketplace links. */
-export function buildRetailButtons(
-  config: ProductOrderConfig,
-  codCharge = DEFAULT_COD_CHARGE,
-): RetailButton[] {
+export function buildRetailButtons(config: ProductOrderConfig, codCharge = DEFAULT_COD_CHARGE): RetailButton[] {
   const buttons: RetailButton[] = [];
 
   if (config.whatsappEnabled !== false && hasPrice(config.whatsappPrice)) {
-    buttons.push({
-      channel: "whatsapp",
-      label: `Order on WhatsApp — ₹${formatPrice(config.whatsappPrice)}`,
-      price: config.whatsappPrice,
-    });
+    buttons.push({ channel: "whatsapp", label: `Order on WhatsApp — ₹${formatPrice(config.whatsappPrice)}`, price: config.whatsappPrice });
   }
 
   if (config.codEnabled && hasPrice(config.whatsappPrice)) {
-    buttons.push({
-      channel: "cod",
-      label: `COD — ₹${formatPrice(config.whatsappPrice + codCharge)}`,
-      price: config.whatsappPrice + codCharge,
-    });
+    buttons.push({ channel: "cod", label: `COD — ₹${formatPrice(config.whatsappPrice + codCharge)}`, price: config.whatsappPrice + codCharge });
   }
 
   if (getMarketplaceLinks(config).length > 0) {
@@ -84,23 +73,16 @@ export function buildRetailButtons(
   return buttons.slice(0, MAX_RETAIL_BUTTONS);
 }
 
+/** A marketplace option is valid only when both its URL and price exist. */
 export function getMarketplaceLinks(config: ProductOrderConfig): MarketplaceLink[] {
   const links: MarketplaceLink[] = [];
 
-  if (hasUrl(config.amazonUrl)) {
-    links.push({
-      name: "Amazon",
-      url: config.amazonUrl,
-      ...(hasPrice(config.amazonPrice) ? { price: config.amazonPrice } : {}),
-    });
+  if (hasUrl(config.amazonUrl) && hasPrice(config.amazonPrice)) {
+    links.push({ name: "Amazon", url: config.amazonUrl, price: config.amazonPrice });
   }
 
-  if (hasUrl(config.meeshoUrl)) {
-    links.push({
-      name: "Meesho",
-      url: config.meeshoUrl,
-      ...(hasPrice(config.meeshoPrice) ? { price: config.meeshoPrice } : {}),
-    });
+  if (hasUrl(config.meeshoUrl) && hasPrice(config.meeshoPrice)) {
+    links.push({ name: "Meesho", url: config.meeshoUrl, price: config.meeshoPrice });
   }
 
   return links;
@@ -112,8 +94,7 @@ export function buildMarketplaceMessage(config: ProductOrderConfig): string {
 
   const lines = ["🛍️ You can also order this product from:", ""];
   for (const link of links) {
-    const price = hasPrice(link.price) ? ` — ₹${formatPrice(link.price)}` : "";
-    lines.push(`${link.name}${price}`, link.url, "");
+    lines.push(`${link.name} — ₹${formatPrice(link.price)}`, link.url, "");
   }
   return lines.join("\n").trim();
 }
@@ -133,21 +114,10 @@ export function buildWholesaleQuote(config: ProductOrderConfig, quantity: number
   const unitPrice = getWholesaleUnitPrice(config, quantity);
   if (unitPrice == null) return null;
 
-  return {
-    customerType: "wholesale" as const,
-    channel: "wholesale" as const,
-    quantity,
-    unitPrice,
-    total: roundMoney(unitPrice * quantity),
-  };
+  return { customerType: "wholesale" as const, channel: "wholesale" as const, quantity, unitPrice, total: roundMoney(unitPrice * quantity) };
 }
 
-export function buildRetailQuote(
-  config: ProductOrderConfig,
-  channel: "whatsapp" | "cod",
-  quantity = 1,
-  codCharge = DEFAULT_COD_CHARGE,
-) {
+export function buildRetailQuote(config: ProductOrderConfig, channel: "whatsapp" | "cod", quantity = 1, codCharge = DEFAULT_COD_CHARGE) {
   if (!Number.isInteger(quantity) || quantity <= 0 || !hasPrice(config.whatsappPrice)) return null;
   if (channel === "whatsapp" && config.whatsappEnabled === false) return null;
   if (channel === "cod" && !config.codEnabled) return null;
