@@ -67,6 +67,16 @@ export default function ProductDetail() {
     return stop;
   }, [product?.id, product?.name, product?.price, product?.category]);
 
+  const { data: orderConfig } = useQuery({
+    queryKey: ["product-order-config", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shoppinghub_marketplace_map" as any).select("whatsapp_url, wholesale_enabled, wholesale_pricing").eq("product_id", id).eq("enabled", true).maybeSingle();
+      if (error) throw error;
+      return data as { whatsapp_url: string | null; wholesale_enabled: boolean; wholesale_pricing: Array<{ min_quantity: number; max_quantity?: number | null; unit_price: number }> | null } | null;
+    },
+    enabled: !!id,
+  });
+
   const { data: reviewStats } = useQuery({
     queryKey: ["product-review-stats", id],
     queryFn: async () => {
@@ -290,6 +300,7 @@ export default function ProductDetail() {
               isAddingToCart={addToCartMutation.isPending}
               averageRating={reviewStats?.averageRating}
               totalReviews={reviewStats?.totalReviews}
+              orderConfig={orderConfig}
             >
               {/* Variant Selector injected between description and stock */}
               <ProductVariantSelector
