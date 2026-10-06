@@ -34,6 +34,7 @@ export interface MarketplaceLink {
 }
 
 export const DEFAULT_COD_CHARGE = 20;
+export const WHOLESALE_MIN_QUANTITY = 100;
 export const MAX_RETAIL_BUTTONS = 3;
 
 const hasPrice = (value: number | null | undefined): value is number =>
@@ -100,7 +101,7 @@ export function buildMarketplaceMessage(config: ProductOrderConfig): string {
 }
 
 export function getWholesaleUnitPrice(config: ProductOrderConfig, quantity: number): number | null {
-  if (!config.wholesaleEnabled || !Number.isInteger(quantity) || quantity <= 0) return null;
+  if (!config.wholesaleEnabled || !Number.isInteger(quantity) || quantity < WHOLESALE_MIN_QUANTITY) return null;
 
   const tiers = (config.wholesalePricing || [])
     .filter(t => Number.isFinite(t.min_quantity) && t.min_quantity > 0 && Number.isFinite(t.unit_price) && t.unit_price >= 0)
